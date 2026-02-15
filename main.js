@@ -36,8 +36,12 @@ function getSupabaseConfig() {
         const url = urlMeta.getAttribute('content');
         const anonKey = keyMeta.getAttribute('content');
         
-        // Check if placeholders have been replaced
-        if (url && anonKey && !url.includes('PLACEHOLDER') && !anonKey.includes('PLACEHOLDER')) {
+        // Validate URL format and that placeholders have been replaced
+        const isValidUrl = url && url.startsWith('https://') && !url.includes('PLACEHOLDER');
+        // Validate anon key (should be a long string, typically 200+ chars)
+        const isValidKey = anonKey && anonKey.length > 100 && !anonKey.includes('PLACEHOLDER');
+        
+        if (isValidUrl && isValidKey) {
             return { url, anonKey };
         }
     }

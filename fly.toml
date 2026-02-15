@@ -1,4 +1,6 @@
-app = "your-app-name"
+# Fly.io app configuration
+# Update "app" value with your actual app name during deployment
+app = "your-app-name"  # Change this during 'fly launch'
 primary_region = "iad"
 
 [build]
