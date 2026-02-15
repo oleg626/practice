@@ -285,7 +285,9 @@ function showLoginSection() {
 }
 
 /**
- * Check current session and update UI
+ * Check current session and update UI.
+ * If the access token is expired (e.g. after Fly.io machine suspension),
+ * proactively refresh it using the refresh token before updating the UI.
  */
 async function checkSession() {
     showLoading();
@@ -294,6 +296,27 @@ async function checkSession() {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) throw error;
+        
+        if (session) {
+            // Check if the access token is expired or about to expire
+            const expiresAt = session.expires_at; // Unix timestamp in seconds
+            const now = Math.floor(Date.now() / 1000);
+            const bufferSeconds = 60; // Refresh if expiring within 60 seconds
+            
+            if (expiresAt && now >= expiresAt - bufferSeconds) {
+                console.log('Access token expired or expiring soon, refreshing...');
+                const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+                
+                if (refreshError) {
+                    console.warn('Session refresh failed, user needs to re-login:', refreshError.message);
+                    updateUI(null);
+                    return;
+                }
+                
+                updateUI(refreshData.session);
+                return;
+            }
+        }
         
         updateUI(session);
     } catch (error) {
@@ -305,21 +328,11 @@ async function checkSession() {
 }
 
 /**
- * Set up authentication state listener
- * This will automatically update the UI when auth state changes
- */
-function setupAuthListener() {
-    supabase.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state changed:', event, session);
-        updateUI(session);
-    });
-}
-
-/**
  * Initialize the application
  */
 async function init() {
     console.log('Initializing application...');
+    showLoading();
     
     // Set up UI navigation event listeners (these work even without Supabase)
     signupLink.addEventListener('click', (e) => {
@@ -344,11 +357,46 @@ async function init() {
     signupForm.addEventListener('submit', handleSignup);
     logoutBtn.addEventListener('click', handleLogout);
     
-    // Set up auth state listener
-    setupAuthListener();
-    
-    // Check for existing session
-    await checkSession();
+    // Use onAuthStateChange as the single source of truth for session state.
+    // The INITIAL_SESSION event fires on startup, so we don't need a separate
+    // checkSession() call (which would race with this listener).
+    let initialSessionHandled = false;
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('Auth state changed:', event);
+        
+        // On first load, proactively refresh an expired access token.
+        // This handles the case where the Fly.io machine was suspended and
+        // the user returns after the short-lived JWT has expired.
+        if (event === 'INITIAL_SESSION' && !initialSessionHandled) {
+            initialSessionHandled = true;
+            
+            if (session) {
+                const expiresAt = session.expires_at; // Unix timestamp in seconds
+                const now = Math.floor(Date.now() / 1000);
+                
+                if (expiresAt && now >= expiresAt - 60) {
+                    console.log('Startup: access token expired, refreshing...');
+                    const { data, error } = await supabase.auth.refreshSession();
+                    if (error) {
+                        console.warn('Startup refresh failed:', error.message);
+                        updateUI(null);
+                    } else {
+                        updateUI(data.session);
+                    }
+                    hideLoading();
+                    return;
+                }
+            }
+            
+            updateUI(session);
+            hideLoading();
+            return;
+        }
+        
+        // For all subsequent auth events (SIGNED_IN, SIGNED_OUT,
+        // TOKEN_REFRESHED, etc.), update the UI directly.
+        updateUI(session);
+    });
     
     console.log('Application initialized');
 }

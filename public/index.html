@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase Authentication Demo</title>
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Supabase configuration (injected at build time for production) -->
-    <meta name="supabase-url" content="SUPABASE_URL_PLACEHOLDER">
-    <meta name="supabase-anon-key" content="SUPABASE_ANON_KEY_PLACEHOLDER">
 </head>
 <body>
     <div class="container">
@@ -136,7 +132,8 @@
                 
                 <div class="card">
                     <h3>🔐 Security Information</h3>
-                    <p>Your session is secured with JWT tokens managed by Supabase.</p>
+                    <p>Your session is secured with httpOnly cookies and JWT tokens.</p>
+                    <p>No tokens are stored in localStorage — all session data is managed server-side.</p>
                     <p>Sessions automatically expire after 30 days of inactivity.</p>
                     <p>You can logout at any time using the button above.</p>
                 </div>
@@ -150,14 +147,7 @@
         <p>Loading...</p>
     </div>
 
-    <!-- Supabase Client Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- Configuration (optional, for local development) -->
-    <!-- Note: In production, config.js won't exist and that's expected. Console error is normal. -->
-    <script src="config.js" onerror="console.log('config.js not found, using meta tags')"></script>
-    
-    <!-- Main Application Script -->
+    <!-- Main Application Script (no external dependencies) -->
     <script src="main.js"></script>
 </body>
 </html>

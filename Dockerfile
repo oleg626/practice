@@ -1,20 +1,20 @@
-# Use nginx to serve static files
-FROM nginx:alpine
+# Use Node.js to run the Express backend
+FROM node:20-alpine
 
-# Copy static files to nginx html directory
-COPY index.html /usr/share/nginx/html/
-COPY main.js /usr/share/nginx/html/
-COPY styles.css /usr/share/nginx/html/
+WORKDIR /app
 
-# Copy build script
-COPY build.sh /build.sh
-RUN chmod +x /build.sh
+# Install production dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy backend server
+COPY server.js ./
+
+# Copy frontend static files
+COPY public/ ./public/
 
 # Expose port 8080 (Fly.io default)
 EXPOSE 8080
 
-# Use a startup script to inject environment variables and start nginx
-CMD ["/bin/sh", "-c", "/build.sh && nginx -g 'daemon off;'"]
+# Start the Express server
+CMD ["node", "server.js"]

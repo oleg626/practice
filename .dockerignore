@@ -1,8 +1,8 @@
 .git
 .gitignore
 README.md
-config.js.example
-config.js
+.env.example
+.env
 node_modules
 .DS_Store
 *.log

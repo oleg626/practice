@@ -1,30 +1,43 @@
 # Supabase Authentication Demo
 
-A simple, secure website that demonstrates user authentication using Supabase with JWT tokens and 30-day session persistence.
+A secure website that demonstrates user authentication using Supabase with a backend proxy architecture. All Supabase keys stay on the server — the browser never sees any API keys or tokens.
 
 ## Features
 
-- ✅ **Email/Password Authentication** - Secure login with Supabase
-- 🔐 **JWT Token Management** - Automatic token handling and refresh
-- ⏱️ **30-Day Session Persistence** - Stay logged in for up to 30 days
-- 🚪 **Logout Functionality** - Manual logout option
-- 🎨 **Clean, Modern UI** - Responsive design that works on all devices
-- 🔒 **Protected Content** - Content visible only to authenticated users
-- 📱 **Responsive Design** - Works perfectly on mobile, tablet, and desktop
+- **Email/Password Authentication** — Secure login with Supabase via backend proxy
+- **httpOnly Cookie Sessions** — Refresh tokens stored in httpOnly cookies (immune to XSS)
+- **30-Day Session Persistence** — Stay logged in for up to 30 days, survives Fly.io machine suspension
+- **Server-Side Token Management** — No Supabase keys or JWT tokens exposed to the browser
+- **Automatic Token Rotation** — Refresh tokens are rotated on every session check
+- **Logout with Server-Side Revocation** — Sessions revoked on Supabase when logging out
+- **Clean, Modern UI** — Responsive design that works on all devices
+
+## Architecture
+
+```
+Browser ──fetch──▶ Express Backend ──@supabase/ssr──▶ Supabase Auth API
+               (httpOnly cookie)     (publishable + secret keys)
+```
+
+- **Frontend** (`public/`): Vanilla JS — calls our backend API, no Supabase dependency
+- **Backend** (`server.js`): Express + `@supabase/ssr` — holds both Supabase keys, manages session cookies automatically
+- **Supabase keys used server-side only**:
+  - `SUPABASE_PUBLISHABLE_DEFAULT_KEY` — for user-facing auth operations
+  - `SUPABASE_SECRET_KEY` — for admin/privileged operations
 
 ## Tech Stack
 
+- **Backend**: Node.js, Express, @supabase/ssr, cookie-parser, helmet
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Authentication**: Supabase
-- **Storage**: localStorage (for session persistence)
-- **CDN**: Supabase JS Client Library v2
+- **Auth Provider**: Supabase
+- **Session Storage**: httpOnly secure cookies (browser-side), no localStorage
 
 ## Prerequisites
 
 Before you begin, you'll need:
 - A modern web browser (Chrome, Firefox, Safari, or Edge)
 - A Supabase account (free tier is sufficient)
-- A local web server (or use browser extensions like Live Server)
+- Node.js 20+ (for local development)
 
 ## Setup Instructions
 
@@ -36,30 +49,39 @@ Before you begin, you'll need:
    - **Name**: Choose a name for your project
    - **Database Password**: Create a secure password
    - **Region**: Select the region closest to you
-4. Click "Create new project" and wait for it to initialize (this may take a few minutes)
+4. Click "Create new project" and wait for it to initialize
 
 ### 2. Enable Email Authentication
 
 1. In your Supabase dashboard, navigate to **Authentication** > **Providers**
 2. Find **Email** in the list of providers
 3. Make sure **Enable Email provider** is turned ON
-4. Configure email settings:
-   - **Enable email confirmations**: You can enable or disable this based on your needs
-   - For development, you might want to disable email confirmations for easier testing
-5. Click **Save**
+4. For development, you may want to disable email confirmations
 
-### 3. Get Your Supabase Credentials
+### 3. Configure Session Lifetime (Required for 30-day sessions)
 
-1. In your Supabase dashboard, go to **Project Settings** (gear icon in the sidebar)
-2. Click on **API** in the left menu
-3. You'll find two important values:
-   - **Project URL** (looks like: `https://xyzcompany.supabase.co`)
-   - **anon public key** (a long JWT token string)
-4. Keep these values handy for the next step
+In your **Supabase Dashboard → Authentication → Settings**:
 
-### 4. Deploy to Fly.io (Production)
+1. **JWT Expiry Limit** — keep at `3600` (1 hour). The backend auto-refreshes this.
+2. **Refresh Token Rotation** — set to **Enabled** (recommended for security).
+3. **Refresh Token Reuse Interval** — set to a small value, e.g. `10` seconds.
+4. **Session Timeout (Refresh Token Lifetime)** — set to **`2592000`** (30 days).
 
-For production deployment on Fly.io with Docker, secrets are configured directly in the Fly.io project:
+Without step 4, sessions will expire at the Supabase default regardless of client/server settings.
+
+### 4. Get Your Supabase Credentials
+
+In your Supabase dashboard, go to **Project Settings** > **API Keys**. You need three values:
+
+| Dashboard label | Environment variable | Purpose |
+|-----------------|---------------------|---------|
+| Project URL | `SUPABASE_URL` | Your project's API endpoint |
+| Publishable | `SUPABASE_PUBLISHABLE_DEFAULT_KEY` | User-facing auth operations (kept server-side) |
+| Secret | `SUPABASE_SECRET_KEY` | Admin operations like session revocation (kept server-side) |
+
+> **Warning:** The secret key bypasses Row Level Security. Never expose it to the browser.
+
+### 5. Deploy to Fly.io (Production)
 
 1. Install the Fly CLI:
    ```bash
@@ -79,10 +101,11 @@ For production deployment on Fly.io with Docker, secrets are configured directly
    - Select a region
    - Do NOT deploy yet
 
-4. Set your Supabase credentials as secrets:
+4. Set your Supabase credentials as secrets (all three are required):
    ```bash
    fly secrets set SUPABASE_URL="https://your-project.supabase.co"
-   fly secrets set SUPABASE_ANON_KEY="your-anon-key-here"
+   fly secrets set SUPABASE_PUBLISHABLE_DEFAULT_KEY="your-publishable-key-here"
+   fly secrets set SUPABASE_SECRET_KEY="your-secret-key-here"
    ```
 
 5. Deploy the application:
@@ -95,62 +118,45 @@ For production deployment on Fly.io with Docker, secrets are configured directly
    fly open
    ```
 
-**Note**: Secrets are injected at container startup and are never committed to version control. The Dockerfile uses a build script to inject environment variables into the HTML at runtime.
+**Note**: All three secrets are required. They are injected as environment variables at runtime and never committed to version control.
 
-### 5. Local Development Setup
+### 6. Local Development Setup
 
-For local development, you can use a config.js file:
-
-1. Copy the example configuration file:
+1. Install dependencies:
    ```bash
-   cp config.js.example config.js
+   npm install
    ```
 
-2. Open `config.js` in your text editor
-
-3. Replace the placeholder values with your actual Supabase credentials:
-   ```javascript
-   const supabaseConfig = {
-       url: 'https://your-project.supabase.co',  // Your Project URL
-       anonKey: 'your-anon-key-here'             // Your anon public key
-   };
+2. Copy the example environment file:
+   ```bash
+   cp .env.example .env
    ```
 
-4. Save the file
+3. Edit `.env` and fill in your Supabase credentials:
+   ```
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-publishable-key-here
+   SUPABASE_SECRET_KEY=your-secret-key-here
+   ```
 
-**IMPORTANT**: The `config.js` file is already in `.gitignore` to prevent credentials from being committed to version control.
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   Then open: `http://localhost:8080`
 
-### 6. Run the Website Locally
+**IMPORTANT**: The `.env` file is in `.gitignore` to prevent credentials from being committed.
 
-You have several options to run the website locally:
+### 7. Run the Website Locally
 
-#### Option A: Using Python's Built-in Server
 ```bash
-# Python 3
-python -m http.server 8000
+# Development (loads .env file automatically)
+npm run dev
 
-# Python 2
-python -m SimpleHTTPServer 8000
+# Production-style (set env vars manually)
+SUPABASE_URL=... SUPABASE_PUBLISHABLE_DEFAULT_KEY=... SUPABASE_SECRET_KEY=... npm start
 ```
-Then open: `http://localhost:8000`
-
-#### Option B: Using Node.js http-server
-```bash
-# Install http-server globally (one time)
-npm install -g http-server
-
-# Run the server
-http-server -p 8000
-```
-Then open: `http://localhost:8000`
-
-#### Option C: Using VS Code Live Server Extension
-1. Install the "Live Server" extension in VS Code
-2. Right-click on `index.html`
-3. Select "Open with Live Server"
-
-#### Option D: Direct File Access (Not Recommended)
-You can open `index.html` directly in your browser, but some features might not work correctly due to CORS restrictions.
+Then open: `http://localhost:8080`
 
 ## Usage
 
@@ -187,23 +193,24 @@ Click the "Logout" button in the header to sign out and return to the login page
 ### Session Persistence
 
 - Your session will automatically persist for **30 days**
-- Even if you close the browser, you'll remain logged in when you return
-- Sessions are stored securely in localStorage
-- JWT tokens are automatically refreshed by Supabase
+- Even if you close the browser or the Fly.io machine is suspended, you'll remain logged in
+- Sessions are stored in **httpOnly cookies** (not localStorage — immune to XSS)
+- Refresh tokens are automatically rotated on each session check
 
 ## File Structure
 
 ```
 .
-├── index.html           # Main HTML file with UI structure
-├── main.js             # JavaScript for authentication logic
-├── styles.css          # CSS styling
-├── config.js.example   # Configuration template (for local dev)
-├── config.js           # Your actual config (not committed, local dev only)
+├── server.js           # Express backend (auth API + static file serving)
+├── package.json        # Node.js dependencies and scripts
+├── public/
+│   ├── index.html      # Frontend HTML
+│   ├── main.js         # Frontend JavaScript (fetch-based, no Supabase dependency)
+│   └── styles.css      # CSS styling
+├── .env.example        # Environment variable template (for local dev)
+├── .env                # Your actual env vars (not committed)
 ├── Dockerfile          # Docker configuration for Fly.io deployment
 ├── fly.toml            # Fly.io app configuration
-├── nginx.conf          # Nginx server configuration
-├── build.sh            # Build script to inject environment variables
 ├── .dockerignore       # Files to exclude from Docker build
 ├── .gitignore          # Git ignore file
 └── README.md           # This file
@@ -212,101 +219,96 @@ Click the "Logout" button in the header to sign out and return to the login page
 ## Deployment Architecture
 
 ### Local Development
-- Configuration loaded from `config.js` file
-- File is gitignored for security
-- Easy to test and develop locally
+- Environment variables loaded from `.env` file via `dotenv`
+- Express server runs on port 8080
+- Same code path as production
 
 ### Production (Fly.io)
-- Configuration injected from Fly.io secrets at container startup
-- Environment variables: `SUPABASE_URL` and `SUPABASE_ANON_KEY`
-- Secrets set via `fly secrets set` command
-- Build script (`build.sh`) replaces placeholders in HTML with actual values
-- Docker container serves static files via nginx
+- Environment variables injected from Fly.io secrets
+- Three secrets required: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_DEFAULT_KEY`, `SUPABASE_SECRET_KEY`
+- Express serves static files and handles API routes
+- httpOnly cookies persist across machine suspensions
+- No Supabase keys or tokens are ever sent to the browser
 
 ## Security Considerations
 
-1. **Local Development**: Never commit `config.js` - Always keep your credentials secure
-2. **Production**: Use Fly.io secrets for environment variables
-3. **Enable email confirmation** for production to prevent spam accounts
-4. **Use HTTPS** in production to secure data transmission (Fly.io does this automatically)
-5. **Row Level Security (RLS)** - Configure RLS in Supabase for database security
-6. **Rate limiting** - Supabase provides built-in rate limiting for auth endpoints
+1. **httpOnly Cookies** — Refresh tokens stored in httpOnly cookies, inaccessible to JavaScript (XSS protection)
+2. **SameSite=Lax** — Cookies use SameSite attribute for CSRF protection
+3. **Secure Flag** — Cookies marked secure in production (HTTPS only)
+4. **No Keys in Browser** — Both Supabase keys (publishable + secret) stay on the server
+5. **Token Rotation** — Refresh tokens are rotated on every session check
+6. **Server-Side Revocation** — Logout revokes the session on Supabase's side
+7. **Helmet.js** — Security headers (CSP, X-Frame-Options, etc.) applied via helmet
+8. **HTTPS** — Fly.io forces HTTPS in production
+9. **RLS** — Configure Row Level Security in Supabase for database protection
+10. **Rate Limiting** — Supabase provides built-in rate limiting for auth endpoints
 
 ## Troubleshooting
 
-### "Failed to initialize application" Error
-
-**Local Development:**
-- Check that `config.js` exists and has the correct credentials
-- Verify your Supabase URL and anon key are correct
-- Make sure your Supabase project is active
-
-**Fly.io Deployment:**
-- Verify secrets are set: `fly secrets list`
-- Check logs: `fly logs`
-- Ensure environment variables are correct: `fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=...`
+### Server won't start
+- Ensure all three environment variables are set (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_DEFAULT_KEY`, `SUPABASE_SECRET_KEY`)
+- For local dev: check `.env` file exists and has valid values
+- For Fly.io: run `fly secrets list` to verify
 
 ### Login Fails with "Invalid login credentials"
 - Verify the email and password are correct
 - If you just signed up, check if email confirmation is required
-- Make sure email authentication is enabled in Supabase
+- Make sure email authentication is enabled in Supabase dashboard
 
 ### Session Not Persisting
-- Check browser's localStorage is enabled
-- Make sure you're not in private/incognito mode
-- Verify the Supabase session configuration in `main.js`
-
-### CORS Errors
-- Use a local web server instead of opening the file directly
-- Check Supabase CORS settings in your project dashboard
+- Ensure cookies are enabled in the browser
+- In production, make sure `force_https = true` in `fly.toml` (cookies require HTTPS)
+- Check that Supabase refresh token lifetime is set to 2592000 (30 days)
 
 ### Fly.io Deployment Issues
 - Build fails: Check Dockerfile syntax and ensure all files are present
 - App doesn't start: Review logs with `fly logs`
-- Secrets not working: Verify they're set with `fly secrets list`
-- Configuration not applied: Check that placeholders in meta tags are being replaced by build.sh
+- Secrets not working: Verify with `fly secrets list`
+- Machine suspends: This is normal — sessions survive via httpOnly cookies
 
 ## How It Works
 
 ### Authentication Flow
 
 1. **Page Load**:
-   - App initializes Supabase client
-   - Checks for existing session in localStorage
-   - Automatically logs in if valid session exists
+   - Frontend calls `GET /api/auth/session`
+   - Backend reads httpOnly cookie, refreshes session with Supabase
+   - Returns user info if valid, 401 if not
 
 2. **Login**:
-   - User submits email/password
-   - Supabase validates credentials
-   - Returns JWT access token and refresh token
-   - Tokens stored in localStorage
-   - UI updates to show protected content
+   - User submits email/password → `POST /api/auth/login`
+   - Backend authenticates with Supabase using the publishable default key
+   - Supabase returns access + refresh tokens
+   - Backend stores refresh token in httpOnly cookie
+   - Returns user info to frontend (no tokens exposed)
 
 3. **Session Persistence**:
-   - Session data stored in localStorage
-   - JWT tokens automatically refreshed before expiration
-   - Session valid for 30 days (or until manual logout)
+   - Refresh token stored in httpOnly cookie (30-day max-age)
+   - On each page load, backend refreshes the session with Supabase
+   - New refresh token replaces the old one (rotation)
+   - Survives Fly.io machine suspension — cookie lives in the browser
 
 4. **Logout**:
-   - Supabase signs out the user
-   - Tokens removed from localStorage
+   - Frontend calls `POST /api/auth/logout`
+   - Backend revokes session on Supabase (via secret key)
+   - Cookie is cleared
    - UI returns to login state
 
-### JWT Token Management
+### Token Management
 
-Supabase handles all JWT token operations automatically:
-- **Access tokens**: Short-lived tokens for API requests
-- **Refresh tokens**: Long-lived tokens to get new access tokens
-- **Automatic refresh**: Tokens refreshed before expiration
-- **Secure storage**: Tokens stored in localStorage
+- **Access tokens**: Never sent to the browser — used only within backend API calls
+- **Refresh tokens**: Stored in httpOnly cookies, rotated on every use
+- **Publishable default key**: Used server-side for user-facing auth operations via `@supabase/ssr`
+- **Secret key**: Used server-side for admin operations
 
 ## Customization
 
-### Adjusting Session Duration
+### Session Lifetime
 
-The 30-day session persistence is handled by Supabase's default settings. To modify:
-1. Go to Supabase Dashboard > Authentication > Settings
-2. Adjust the JWT expiry settings
+To adjust the 30-day session duration, change **two things**:
+
+1. **Supabase Dashboard** → Authentication → Settings → set refresh token lifetime
+2. **`server.js`** → update `COOKIE_OPTIONS.maxAge` to match
 
 ### Changing UI Styles
 
