@@ -26,7 +26,7 @@ function initializeSupabase() {
     try {
         // Check if Supabase library is loaded
         if (typeof window.supabase === 'undefined') {
-            throw new Error('Supabase library not loaded. Please check your internet connection or disable content blockers. The CDN may be blocked.');
+            throw new Error('Supabase library not loaded. Check your internet connection or disable content blockers.');
         }
 
         if (typeof supabaseConfig === 'undefined') {

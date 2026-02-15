@@ -132,7 +132,7 @@ You can open `index.html` directly in your browser, but some features might not 
 6. If email confirmation is disabled:
    - You'll be automatically logged in or can immediately sign in
 
-### Logging In
+### Logging in
 
 1. On the login page, enter your email and password
 2. Click "Sign In"
@@ -145,7 +145,7 @@ Once logged in, you'll see:
 - Protected content that's only visible to authenticated users
 - A logout button in the header
 
-### Logging Out
+### Logging out
 
 Click the "Logout" button in the header to sign out and return to the login page.
 
