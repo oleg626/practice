@@ -24,11 +24,18 @@ const userEmail = document.getElementById('user-email');
  */
 function initializeSupabase() {
     try {
-        if (typeof supabaseConfig === 'undefined') {
-            throw new Error('Supabase configuration not found. Please create config.js file.');
+        // Check if Supabase library is loaded
+        if (typeof window.supabase === 'undefined') {
+            throw new Error('Supabase library not loaded. Please check your internet connection or disable content blockers. The CDN may be blocked.');
         }
 
-        supabase = supabase.createClient(
+        if (typeof supabaseConfig === 'undefined') {
+            throw new Error('Supabase configuration not found. Please create config.js file from config.js.example.');
+        }
+
+        // Create Supabase client using the global supabase object from CDN
+        const { createClient } = window.supabase;
+        supabase = createClient(
             supabaseConfig.url,
             supabaseConfig.anonKey,
             {
@@ -282,18 +289,7 @@ function setupAuthListener() {
 async function init() {
     console.log('Initializing application...');
     
-    // Initialize Supabase client
-    const initialized = initializeSupabase();
-    if (!initialized) {
-        hideLoading();
-        showError('Failed to initialize application. Please check configuration.');
-        return;
-    }
-    
-    // Set up event listeners
-    loginForm.addEventListener('submit', handleLogin);
-    signupForm.addEventListener('submit', handleSignup);
-    logoutBtn.addEventListener('click', handleLogout);
+    // Set up UI navigation event listeners (these work even without Supabase)
     signupLink.addEventListener('click', (e) => {
         e.preventDefault();
         showSignupSection();
@@ -302,6 +298,19 @@ async function init() {
         e.preventDefault();
         showLoginSection();
     });
+    
+    // Initialize Supabase client
+    const initialized = initializeSupabase();
+    if (!initialized) {
+        hideLoading();
+        showError('Failed to initialize application. Please check configuration.');
+        return;
+    }
+    
+    // Set up auth event listeners (these require Supabase)
+    loginForm.addEventListener('submit', handleLogin);
+    signupForm.addEventListener('submit', handleSignup);
+    logoutBtn.addEventListener('click', handleLogout);
     
     // Set up auth state listener
     setupAuthListener();
