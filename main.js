@@ -19,6 +19,33 @@ const signupSuccessMessage = document.getElementById('signup-success-message');
 const userEmail = document.getElementById('user-email');
 
 /**
+ * Get Supabase configuration from either config.js or meta tags
+ * Meta tags are used in production (Fly.io deployment)
+ */
+function getSupabaseConfig() {
+    // Try to get config from config.js (local development)
+    if (typeof supabaseConfig !== 'undefined' && supabaseConfig.url && supabaseConfig.anonKey) {
+        return supabaseConfig;
+    }
+    
+    // Try to get config from meta tags (production deployment)
+    const urlMeta = document.querySelector('meta[name="supabase-url"]');
+    const keyMeta = document.querySelector('meta[name="supabase-anon-key"]');
+    
+    if (urlMeta && keyMeta) {
+        const url = urlMeta.getAttribute('content');
+        const anonKey = keyMeta.getAttribute('content');
+        
+        // Check if placeholders have been replaced
+        if (url && anonKey && !url.includes('PLACEHOLDER') && !anonKey.includes('PLACEHOLDER')) {
+            return { url, anonKey };
+        }
+    }
+    
+    return null;
+}
+
+/**
  * Initialize Supabase client with configuration
  * Session persistence is configured for 30 days
  */
@@ -29,15 +56,16 @@ function initializeSupabase() {
             throw new Error('Supabase library not loaded. Check your internet connection or disable content blockers.');
         }
 
-        if (typeof supabaseConfig === 'undefined') {
-            throw new Error('Supabase configuration not found. Please create config.js file from config.js.example.');
+        const config = getSupabaseConfig();
+        if (!config) {
+            throw new Error('Supabase configuration not found. Please create config.js file from config.js.example or set environment variables.');
         }
 
         // Create Supabase client using the global supabase object from CDN
         const { createClient } = window.supabase;
         supabase = createClient(
-            supabaseConfig.url,
-            supabaseConfig.anonKey,
+            config.url,
+            config.anonKey,
             {
                 auth: {
                     // Store session in localStorage for persistence

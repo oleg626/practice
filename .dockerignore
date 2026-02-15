@@ -1,0 +1,8 @@
+.git
+.gitignore
+README.md
+config.js.example
+config.js
+node_modules
+.DS_Store
+*.log

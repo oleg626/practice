@@ -57,33 +57,68 @@ Before you begin, you'll need:
    - **anon public key** (a long JWT token string)
 4. Keep these values handy for the next step
 
-### 4. Configure the Project
+### 4. Deploy to Fly.io (Production)
 
-1. Clone or download this repository
-2. Navigate to the project folder
-3. Copy the example configuration file:
+For production deployment on Fly.io with Docker, secrets are configured directly in the Fly.io project:
+
+1. Install the Fly CLI:
+   ```bash
+   curl -L https://fly.io/install.sh | sh
+   ```
+
+2. Login to Fly.io:
+   ```bash
+   fly auth login
+   ```
+
+3. Create a new Fly.io app (first time only):
+   ```bash
+   fly launch
+   ```
+   - Choose a unique app name
+   - Select a region
+   - Do NOT deploy yet
+
+4. Set your Supabase credentials as secrets:
+   ```bash
+   fly secrets set SUPABASE_URL="https://your-project.supabase.co"
+   fly secrets set SUPABASE_ANON_KEY="your-anon-key-here"
+   ```
+
+5. Deploy the application:
+   ```bash
+   fly deploy
+   ```
+
+6. Open your deployed app:
+   ```bash
+   fly open
+   ```
+
+**Note**: Secrets are injected at container startup and are never committed to version control. The Dockerfile uses a build script to inject environment variables into the HTML at runtime.
+
+### 5. Local Development Setup
+
+For local development, you can use a config.js file:
+
+1. Copy the example configuration file:
    ```bash
    cp config.js.example config.js
    ```
-4. Open `config.js` in your text editor
-5. Replace the placeholder values with your actual Supabase credentials:
+
+2. Open `config.js` in your text editor
+
+3. Replace the placeholder values with your actual Supabase credentials:
    ```javascript
    const supabaseConfig = {
        url: 'https://your-project.supabase.co',  // Your Project URL
        anonKey: 'your-anon-key-here'             // Your anon public key
    };
    ```
-6. Save the file
 
-### 5. Add config.js to .gitignore
+4. Save the file
 
-**IMPORTANT**: To keep your credentials secure, make sure `config.js` is in your `.gitignore` file:
-
-```bash
-echo "config.js" >> .gitignore
-```
-
-This prevents your credentials from being committed to version control.
+**IMPORTANT**: The `config.js` file is already in `.gitignore` to prevent credentials from being committed to version control.
 
 ### 6. Run the Website Locally
 
@@ -163,27 +198,53 @@ Click the "Logout" button in the header to sign out and return to the login page
 ├── index.html           # Main HTML file with UI structure
 ├── main.js             # JavaScript for authentication logic
 ├── styles.css          # CSS styling
-├── config.js.example   # Configuration template
-├── config.js           # Your actual config (not committed)
+├── config.js.example   # Configuration template (for local dev)
+├── config.js           # Your actual config (not committed, local dev only)
+├── Dockerfile          # Docker configuration for Fly.io deployment
+├── fly.toml            # Fly.io app configuration
+├── nginx.conf          # Nginx server configuration
+├── build.sh            # Build script to inject environment variables
+├── .dockerignore       # Files to exclude from Docker build
 ├── .gitignore          # Git ignore file
 └── README.md           # This file
 ```
 
+## Deployment Architecture
+
+### Local Development
+- Configuration loaded from `config.js` file
+- File is gitignored for security
+- Easy to test and develop locally
+
+### Production (Fly.io)
+- Configuration injected from Fly.io secrets at container startup
+- Environment variables: `SUPABASE_URL` and `SUPABASE_ANON_KEY`
+- Secrets set via `fly secrets set` command
+- Build script (`build.sh`) replaces placeholders in HTML with actual values
+- Docker container serves static files via nginx
+
 ## Security Considerations
 
-1. **Never commit `config.js`** - Always keep your credentials secure
-2. **Use environment variables** in production deployments
+1. **Local Development**: Never commit `config.js` - Always keep your credentials secure
+2. **Production**: Use Fly.io secrets for environment variables
 3. **Enable email confirmation** for production to prevent spam accounts
-4. **Use HTTPS** in production to secure data transmission
+4. **Use HTTPS** in production to secure data transmission (Fly.io does this automatically)
 5. **Row Level Security (RLS)** - Configure RLS in Supabase for database security
 6. **Rate limiting** - Supabase provides built-in rate limiting for auth endpoints
 
 ## Troubleshooting
 
 ### "Failed to initialize application" Error
+
+**Local Development:**
 - Check that `config.js` exists and has the correct credentials
 - Verify your Supabase URL and anon key are correct
 - Make sure your Supabase project is active
+
+**Fly.io Deployment:**
+- Verify secrets are set: `fly secrets list`
+- Check logs: `fly logs`
+- Ensure environment variables are correct: `fly secrets set SUPABASE_URL=... SUPABASE_ANON_KEY=...`
 
 ### Login Fails with "Invalid login credentials"
 - Verify the email and password are correct
@@ -198,6 +259,12 @@ Click the "Logout" button in the header to sign out and return to the login page
 ### CORS Errors
 - Use a local web server instead of opening the file directly
 - Check Supabase CORS settings in your project dashboard
+
+### Fly.io Deployment Issues
+- Build fails: Check Dockerfile syntax and ensure all files are present
+- App doesn't start: Review logs with `fly logs`
+- Secrets not working: Verify they're set with `fly secrets list`
+- Configuration not applied: Check that placeholders in meta tags are being replaced by build.sh
 
 ## How It Works
 

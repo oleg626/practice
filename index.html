@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase Authentication Demo</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Supabase configuration (injected at build time for production) -->
+    <meta name="supabase-url" content="SUPABASE_URL_PLACEHOLDER">
+    <meta name="supabase-anon-key" content="SUPABASE_ANON_KEY_PLACEHOLDER">
 </head>
 <body>
     <div class="container">
@@ -149,8 +153,8 @@
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Configuration -->
-    <script src="config.js"></script>
+    <!-- Configuration (optional, for local development) -->
+    <script src="config.js" onerror="console.log('config.js not found, using meta tags')"></script>
     
     <!-- Main Application Script -->
     <script src="main.js"></script>
