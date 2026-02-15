@@ -1,0 +1,16 @@
+// Supabase Configuration
+// IMPORTANT: Replace these values with your actual Supabase project credentials
+
+const supabaseConfig = {
+    // Your Supabase project URL
+    // Find this in: Supabase Dashboard > Project Settings > API
+    url: 'YOUR_SUPABASE_URL',
+    
+    // Your Supabase anon/public key
+    // Find this in: Supabase Dashboard > Project Settings > API
+    anonKey: 'YOUR_SUPABASE_ANON_KEY'
+};
+
+// Example (DO NOT USE THESE VALUES):
+// url: 'https://xyzcompany.supabase.co'
+// anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
