@@ -233,6 +233,15 @@ async function init() {
     signupForm.addEventListener('submit', handleSignup);
     logoutBtn.addEventListener('click', handleLogout);
 
+    // When the user returns to the tab after being away (e.g. >1 hour idle),
+    // re-check the session so the backend can refresh the expired access
+    // token via the refresh token cookie before we decide to show login.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            checkSession();
+        }
+    });
+
     // Check for existing session (validates cookie with the backend)
     await checkSession();
 

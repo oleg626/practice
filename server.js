@@ -192,9 +192,22 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/auth/session', async (req, res) => {
     try {
         const supabase = createSupabaseClient(req, res);
-        const { data: { user }, error } = await supabase.auth.getUser();
 
-        if (error || !user) {
+        // getSession() reads the session from cookies and, critically,
+        // refreshes the access token using the refresh token when the JWT
+        // has expired.  The refreshed tokens are written back to the
+        // browser via the setAll cookie callback, so subsequent requests
+        // carry valid credentials.
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+            return res.status(401).json({ error: 'Not authenticated.' });
+        }
+
+        // Verify the (now-refreshed) token with the Supabase Auth server.
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !user) {
             return res.status(401).json({ error: 'Not authenticated.' });
         }
 
