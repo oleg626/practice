@@ -201,19 +201,22 @@ Click the "Logout" button in the header to sign out and return to the login page
 
 ```
 .
-├── server.js           # Express backend (auth API + static file serving)
-├── package.json        # Node.js dependencies and scripts
+├── server.js               # Express backend (auth API + static file serving)
+├── package.json            # Node.js dependencies and scripts
 ├── public/
-│   ├── index.html      # Frontend HTML
-│   ├── main.js         # Frontend JavaScript (fetch-based, no Supabase dependency)
-│   └── styles.css      # CSS styling
-├── .env.example        # Environment variable template (for local dev)
-├── .env                # Your actual env vars (not committed)
-├── Dockerfile          # Docker configuration for Fly.io deployment
-├── fly.toml            # Fly.io app configuration
-├── .dockerignore       # Files to exclude from Docker build
-├── .gitignore          # Git ignore file
-└── README.md           # This file
+│   ├── index.html          # Frontend HTML
+│   ├── main.js             # Frontend JavaScript (fetch-based, no Supabase dependency)
+│   └── styles.css          # CSS styling
+├── .github/
+│   └── copilot-instructions.md  # GitHub Copilot agent instructions for this repo
+├── AGENTS.md               # Guide to finding and using GitHub Copilot agents
+├── .env.example            # Environment variable template (for local dev)
+├── .env                    # Your actual env vars (not committed)
+├── Dockerfile              # Docker configuration for Fly.io deployment
+├── fly.toml                # Fly.io app configuration
+├── .dockerignore           # Files to exclude from Docker build
+├── .gitignore              # Git ignore file
+└── README.md               # This file
 ```
 
 ## Deployment Architecture
