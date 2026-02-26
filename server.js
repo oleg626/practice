@@ -1,6 +1,7 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 const path = require('path');
 const { createServerClient } = require('@supabase/ssr');
 const { createClient } = require('@supabase/supabase-js');
@@ -96,6 +97,21 @@ app.use(
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
+// Rate limiting — protect auth endpoints from brute-force attacks
+// ---------------------------------------------------------------------------
+
+const authRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,                   // max 20 requests per window per IP
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+});
+
+// Apply rate limit to all /api/auth routes
+app.use('/api/auth', authRateLimit);
+
+// ---------------------------------------------------------------------------
 // Auth API routes
 // ---------------------------------------------------------------------------
 
@@ -111,6 +127,10 @@ app.post('/api/auth/signup', async (req, res) => {
 
     if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
     try {
@@ -223,12 +243,26 @@ app.get('/api/auth/session', async (req, res) => {
 /**
  * POST /api/auth/logout
  *
- * The SSR client's signOut() revokes the session on Supabase and clears
- * session cookies via setAll.
+ * Reads the current session from cookies, uses the admin client to revoke it
+ * globally (all devices/sessions for this user), then clears the session
+ * cookies via the SSR client's signOut().
  */
 app.post('/api/auth/logout', async (req, res) => {
     try {
         const supabase = createSupabaseClient(req, res);
+
+        // Read the session so we can pass the access token to the admin client
+        // for global revocation. getSession() will refresh the token if expired.
+        const { data: { session } } = await supabase.auth.getSession();
+
+        // Revoke the session on Supabase's side via the admin client.
+        // Using scope 'global' ensures all active sessions for this user are
+        // invalidated, not just the current one.
+        if (session?.access_token) {
+            await supabaseAdmin.auth.admin.signOut(session.access_token, 'global');
+        }
+
+        // Clear session cookies in the browser via the SSR client.
         await supabase.auth.signOut();
 
         return res.json({ message: 'Logged out.' });
